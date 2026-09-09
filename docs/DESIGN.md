@@ -231,7 +231,7 @@ MVP에서는 별도 대기열 테이블을 만들지 않고, `Application`의 `W
 - SavingsProduct 엔티티 구현
 - Application 엔티티 구현
 - 시드데이터 구성
-- 시각 컬럼 UTC 저장 정책 적용 (`Instant` 또는 `OffsetDateTime` 사용)
+- 시각 컬럼 UTC 저장 정책 적용 (엔티티 필드는 `Instant`로 통일)
 - 상품 목록 및 상세 조회 API 구현
 
 ### 3단계: 신청 기능 구현

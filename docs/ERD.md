@@ -74,10 +74,12 @@ erDiagram
 모든 시각 컬럼은 UTC 기준으로 저장한다. `datetime`은 타임존을 저장하지 않으므로, 저장 값이 UTC라는 것을 애플리케이션에서 보장한다.
 
 - DB 컬럼 타입은 `datetime`을 사용한다.
-- 엔티티는 `LocalDateTime` 대신 `Instant` 또는 `OffsetDateTime`을 사용한다.
+- 엔티티 필드 타입은 `Instant`로 통일한다. `LocalDateTime`은 사용하지 않는다.
 - API 응답은 오프셋을 포함한 ISO-8601 형식으로 변환해 내려준다.
 
 `LocalDateTime`을 사용하면 로컬 개발 환경(KST)과 배포 환경(UTC)에서 `start_at`, `end_at` 비교 결과가 달라져 신청 기간 판정이 어긋난다.
+
+`OffsetDateTime`도 사용하지 않는다. `datetime` 컬럼에는 오프셋을 저장할 수 없어, `hibernate.jdbc.time_zone: UTC` 설정에 따라 저장 시 UTC로 정규화되고 조회 시 원래 오프셋이 아닌 UTC 기준으로 복원된다. 보존되지 않는 정보를 타입으로 표현하게 되므로 `Instant`를 쓴다.
 
 ## 5. 컬럼 참고
 
