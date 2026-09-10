@@ -12,6 +12,8 @@ MVP에서는 선착순 특판 적금 신청 흐름을 구현하기 위해 다음
 
 대기열과 알림 관련 테이블은 2차 구현에서 추가한다. 멱등성은 별도 테이블이 아니라 `applications.idempotency_key` 컬럼으로 2차 구현에서 추가한다.
 
+실제 스키마는 Flyway 마이그레이션 `src/main/resources/db/migration/V1__init_schema.sql`이 관리한다. 이 문서와 마이그레이션이 어긋나면 마이그레이션이 기준이다.
+
 ## 2. MVP ERD
 
 ```mermaid
@@ -73,7 +75,7 @@ erDiagram
 
 모든 시각 컬럼은 UTC 기준으로 저장한다. `datetime`은 타임존을 저장하지 않으므로, 저장 값이 UTC라는 것을 애플리케이션에서 보장한다.
 
-- DB 컬럼 타입은 `datetime`을 사용한다.
+- DB 컬럼 타입은 `datetime(6)`을 사용한다. `applied_at`의 정밀도가 낮으면 동시 신청 시 같은 값이 과도하게 발생해 대기 순서 검증이 어려워진다.
 - 엔티티 필드 타입은 `Instant`로 통일한다. `LocalDateTime`은 사용하지 않는다.
 - API 응답은 오프셋을 포함한 ISO-8601 형식으로 변환해 내려준다.
 

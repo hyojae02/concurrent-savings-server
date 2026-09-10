@@ -195,6 +195,7 @@ MVP에서는 별도 대기열 테이블을 만들지 않고, `Application`의 `W
 - Spring Boot
 - Gradle
 - Spring Data JPA
+- Flyway
 - MySQL
 - Redis
 - Redisson
@@ -231,6 +232,7 @@ MVP에서는 별도 대기열 테이블을 만들지 않고, `Application`의 `W
 - SavingsProduct 엔티티 구현
 - Application 엔티티 구현
 - 시드데이터 구성
+- Flyway 마이그레이션(`V1__init_schema.sql`)으로 스키마 관리
 - 시각 컬럼 UTC 저장 정책 적용 (엔티티 필드는 `Instant`로 통일)
 - 상품 목록 및 상세 조회 API 구현
 
