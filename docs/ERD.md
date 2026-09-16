@@ -95,3 +95,51 @@ MVP에서는 두 값이 사실상 같지만, 2차 구현에서 대기열 승격�
 ### savings_products.remaining_capacity
 
 `remaining_capacity`는 `SUCCESS` 상태 신청 수에서 파생되는 값이므로 동시성 제어가 없으면 실제 신청 수와 어긋날 수 있다. 이 불일치를 재현하고 해결하는 것이 동시성 학습의 핵심이므로 별도 컬럼으로 유지한다. 로드맵 4단계에서 `capacity - COUNT(SUCCESS) = remaining_capacity` 정합성을 검증하는 테스트를 함께 작성한다.
+
+## 6. 시드데이터
+
+시드는 `src/main/resources/db/seed/R__seed_data.sql`이 관리한다. 관리자 상품 등록 API를 구현하지 않으므로 특판 적금 상품은 시드로만 만들어진다.
+
+### 적용 범위
+
+Flyway location을 둘로 나눈다.
+
+| location | 내용 | 적용 환경 |
+| --- | --- | --- |
+| `classpath:db/migration` | 스키마 | 전체 (Spring Boot 기본값) |
+| `classpath:db/seed` | 시드 | local 프로파일만 |
+
+`application-local.yaml`에서만 `spring.flyway.locations`에 `db/seed`를 추가한다. `@DataJpaTest`가 Flyway 자동 설정을 포함하므로, 시드를 `db/migration`에 두면 모든 테스트가 유저 10명과 상품 4개를 안고 시작하게 되어 4단계 정합성 검증 테스트의 기준선이 흐려진다. 테스트는 빈 스키마에서 필요한 데이터를 직접 만든다. 이 분리는 `SeedIsolationTest`가 지킨다.
+
+### repeatable 마이그레이션을 쓰는 이유
+
+Flyway는 여러 location을 하나의 버전 시퀀스로 합친다. 시드를 `V900__seed_data.sql` 같은 versioned 마이그레이션으로 두면, 로컬에서 V900을 적용한 뒤 `V2__add_idempotency_key.sql`을 추가하는 순간 이미 적용된 버전보다 낮은 버전이 나타나 Flyway가 실패한다(`outOfOrder` 기본값 false). 2차 구현에서 `idempotency_key` 컬럼 추가가 예정되어 있으므로 이 상황은 반드시 온다.
+
+repeatable 마이그레이션은 항상 모든 versioned 마이그레이션 이후에 실행되므로 버전 충돌이 없고, 시드 내용을 고치면 체크섬이 바뀌어 자동으로 다시 적용된다.
+
+### 재실행 시 동작
+
+repeatable은 다시 실행되므로 시드는 로컬 DB를 알려진 초기 상태로 되돌린다. `applications`를 전부 지운 뒤 users와 savings_products를 명시적 id로 upsert한다.
+
+신청 내역을 남긴 채 `remaining_capacity`만 정원 값으로 되돌리면 `capacity - COUNT(SUCCESS) = remaining_capacity`가 깨진 상태로 로컬 DB가 시작된다. 이 삭제는 시드 파일을 수정했을 때만, local 프로파일에서만 일어난다.
+
+id를 고정하는 것은 멱등성을 위한 것이면서 `X-User-Id: 1`처럼 헤더에 바로 쓸 수 있게 하려는 목적도 있다.
+
+### 상품 구성
+
+| id | 이름 | interest_rate | capacity | start_at | end_at | 재현하는 상태 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 선착순 특판 적금 100좌 | 5.50 | 100 | -1일 | +7일 | 진행 중, 정원 넉넉 |
+| 2 | 한정 특판 적금 3좌 | 7.00 | 3 | -1일 | +7일 | 진행 중, 정원 소량. WAITING 재현용 |
+| 3 | 오픈 예정 특판 적금 | 6.00 | 50 | +3일 | +10일 | 신청 기간 전. 실패 응답 |
+| 4 | 종료된 특판 적금 | 4.50 | 20 | -30일 | -1일 | 신청 기간 후. 실패 응답 |
+
+유저는 id 1~10을 만든다. 부하 테스트용 대량 유저는 10단계에서 필요해지면 별도 시드로 추가한다.
+
+`applications`는 시드에 넣지 않는다. 신청 데이터를 미리 넣으면 `remaining_capacity`와의 정합성을 시드 작성자가 손으로 맞춰야 하고, 4단계 정합성 검증 테스트의 기준선이 흐려진다.
+
+### 시각 표기
+
+`start_at`, `end_at`은 위 표처럼 상대값으로 넣는다. 절대 시각을 하드코딩하면 몇 달 뒤 "진행 중" 상품이 전부 마감되어 신청 API를 테스트할 수 없다.
+
+`NOW()`가 아니라 `UTC_TIMESTAMP(6)`을 쓴다. `NOW()`는 세션 타임존을 따라가므로 4절의 UTC 저장 정책을 깨뜨린다.
